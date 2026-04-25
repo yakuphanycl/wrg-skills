@@ -25,6 +25,10 @@ jobs:
       - name: Validate SKILL.md frontmatter
         run: python .github/workflows/scripts/check_frontmatter.py
 
+      - name: Check mirror drift (advisory)
+        continue-on-error: true
+        run: python tools/check_mirror_drift.py
+
       - name: Ruff check skill scripts
         shell: bash
         run: |

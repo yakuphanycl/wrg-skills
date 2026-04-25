@@ -19,10 +19,29 @@
       "name": "monorepo-audit",
       "path": "skills/monorepo-audit",
       "summary": "Audit a Python monorepo for SQLite schema drift, coverage-floor drift, and orphan modules. Read-only, fast, stdlib-only with optional tomli fallback.",
-      "tags": ["monorepo", "python", "audit", "governance", "schema-drift", "coverage", "dead-code"],
-      "triggers": ["audit my monorepo", "schema drift", "coverage floor", "orphan modules", "fail_under check", "/monorepo-audit"],
-      "scripts": ["scripts/audit.py"],
-      "references": ["references/conventions.md"],
+      "tags": [
+        "monorepo",
+        "python",
+        "audit",
+        "governance",
+        "schema-drift",
+        "coverage",
+        "dead-code"
+      ],
+      "triggers": [
+        "audit my monorepo",
+        "schema drift",
+        "coverage floor",
+        "orphan modules",
+        "fail_under check",
+        "/monorepo-audit"
+      ],
+      "scripts": [
+        "scripts/audit.py"
+      ],
+      "references": [
+        "references/conventions.md"
+      ],
       "scope": "general",
       "language": "python",
       "stability": "stable"
@@ -31,8 +50,21 @@
       "name": "memory-check",
       "path": "skills/memory-check",
       "summary": "Pause and audit the current conversation for friction patterns auto-memory might have missed. Surfaces correction patterns, repeated friction, and real-time mismatches as draft feedback memory entries with per-entry user approval.",
-      "tags": ["memory", "audit", "session", "feedback", "discipline"],
-      "triggers": ["/memory-check", "memory check", "scan friction", "what have I been correcting", "look for repeated fixes", "what should I remember from this session"],
+      "tags": [
+        "memory",
+        "audit",
+        "session",
+        "feedback",
+        "discipline"
+      ],
+      "triggers": [
+        "/memory-check",
+        "memory check",
+        "scan friction",
+        "what have I been correcting",
+        "look for repeated fixes",
+        "what should I remember from this session"
+      ],
       "scripts": [],
       "references": [],
       "scope": "general",
@@ -43,47 +75,101 @@
       "name": "wrg-devguard-paste-lint",
       "path": "skills/wrg-devguard-paste-lint",
       "summary": "Run wrg-devguard policy lint or secret scan against a pasted snippet. Useful for prompt-injection detection, AI safety review, and credential leak detection. Wraps the wrg-devguard PyPI package; no network calls.",
-      "tags": ["safety", "prompt-injection", "secrets", "lint", "ai-safety", "wrg-devguard"],
-      "triggers": ["is this prompt safe", "any secrets in this", "lint this prompt", "prompt injection check", "scan for credentials", "/wrg-devguard-paste-lint"],
-      "scripts": ["scripts/quick_check.py", "scripts/test_quick_check.py"],
+      "tags": [
+        "safety",
+        "prompt-injection",
+        "secrets",
+        "lint",
+        "ai-safety",
+        "wrg-devguard"
+      ],
+      "triggers": [
+        "is this prompt safe",
+        "any secrets in this",
+        "lint this prompt",
+        "prompt injection check",
+        "scan for credentials",
+        "/wrg-devguard-paste-lint"
+      ],
+      "scripts": [
+        "scripts/quick_check.py",
+        "scripts/test_quick_check.py"
+      ],
       "references": [],
       "scope": "general",
       "language": "python",
       "stability": "stable",
       "dependencies": {
-        "pypi": ["wrg-devguard>=0.1.1"]
+        "pypi": [
+          "wrg-devguard>=0.1.1"
+        ]
       }
     },
     {
       "name": "instinct",
       "path": "skills/instinct",
       "summary": "Self-learning memory for AI coding agents. Records tool sequences, user preferences, and recurring fixes; auto-promotes mature patterns into suggestions. Mirror of yakuphanycl/instinct's canonical skill — runs on top of the instinct-mcp PyPI server (~1,400 monthly downloads).",
-      "tags": ["memory", "pattern-learning", "self-learning", "mcp", "instinct", "instinct-mcp", "mirror"],
-      "triggers": ["remember this", "remember this pattern", "log this fix", "what have we seen before", "consolidate session memory", "/instinct", "scan repo for past patterns"],
+      "tags": [
+        "memory",
+        "pattern-learning",
+        "self-learning",
+        "mcp",
+        "instinct",
+        "instinct-mcp",
+        "mirror"
+      ],
+      "triggers": [
+        "remember this",
+        "remember this pattern",
+        "log this fix",
+        "what have we seen before",
+        "consolidate session memory",
+        "/instinct",
+        "scan repo for past patterns"
+      ],
       "scripts": [],
       "references": [],
       "scope": "general",
       "language": "markdown",
       "stability": "stable",
       "dependencies": {
-        "pypi": ["instinct-mcp>=1.4.0"]
+        "pypi": [
+          "instinct-mcp>=1.4.0"
+        ]
       },
       "mirror": {
         "source": "https://github.com/yakuphanycl/instinct/blob/master/.claude/skills/instinct/SKILL.md",
         "upstream_repo": "yakuphanycl/instinct",
         "upstream_version_at_sync": "v1.4.0",
         "last_sync": "2026-04-25",
-        "sync_cadence": "manual / quarterly or on upstream minor release"
+        "sync_cadence": "manual / quarterly or on upstream minor release",
+        "upstream_content_sha256": "df7282e1f5f41f67037204e59d46e486aad237381edd844ff7d05cbe850df2c1"
       }
     },
     {
       "name": "mcp-audit",
       "path": "skills/mcp-audit",
-      "summary": "Audit a FastMCP server for tool discoverability (1-5 per tool), return-shape consistency, test coverage, and decay candidates. Produces an evidence-only Markdown report with a 'this-week pick' of \u2264 1hr fixes plus a deferred backlog. Read-only; battle-tested across two real audits.",
-      "tags": ["audit", "mcp", "fastmcp", "discoverability", "evidence-brief", "tool-quality"],
-      "triggers": ["audit my MCP server", "score my MCP tools", "check tool discoverability", "MCP tool inventory", "are my MCP descriptions any good", "/mcp-audit"],
+      "summary": "Audit a FastMCP server for tool discoverability (1-5 per tool), return-shape consistency, test coverage, and decay candidates. Produces an evidence-only Markdown report with a 'this-week pick' of ≤ 1hr fixes plus a deferred backlog. Read-only; battle-tested across two real audits.",
+      "tags": [
+        "audit",
+        "mcp",
+        "fastmcp",
+        "discoverability",
+        "evidence-brief",
+        "tool-quality"
+      ],
+      "triggers": [
+        "audit my MCP server",
+        "score my MCP tools",
+        "check tool discoverability",
+        "MCP tool inventory",
+        "are my MCP descriptions any good",
+        "/mcp-audit"
+      ],
       "scripts": [],
-      "references": ["references/audit_template.md"],
+      "references": [
+        "references/audit_template.md"
+      ],
       "scope": "general",
       "language": "markdown",
       "stability": "stable",
@@ -105,9 +191,18 @@
     "format": "skills.sh v1",
     "installer": "npx skills install github.com/yakuphanycl/wrg-skills",
     "compatible_agents": [
-      "Amp", "Antigravity", "Cline", "Codex", "Cursor", "Deep Agents",
-      "Firebender", "Gemini CLI", "GitHub Copilot", "Kimi Code CLI",
-      "OpenCode", "Warp"
+      "Amp",
+      "Antigravity",
+      "Cline",
+      "Codex",
+      "Cursor",
+      "Deep Agents",
+      "Firebender",
+      "Gemini CLI",
+      "GitHub Copilot",
+      "Kimi Code CLI",
+      "OpenCode",
+      "Warp"
     ],
     "claude_code_compatibility": "manual or symlink — see INSTALL.md"
   }

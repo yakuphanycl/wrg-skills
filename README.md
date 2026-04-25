@@ -38,6 +38,19 @@ These are skills that surfaced naturally during day-to-day work on the WRG monor
 
 Adjacent ecosystem: [browserbase/skills](https://github.com/browserbase/skills) (browser automation), [google/skills](https://github.com/google/skills) (cloud-product domain experts), [anthropic-skills](https://github.com/anthropics/anthropic-skills) (canonical first-party set).
 
+## Mirror drift detection
+
+Some skills here (currently `instinct`) are **mirrored** from another repo as a discovery surface — the canonical copy lives upstream. To prevent silent drift:
+
+```bash
+python tools/check_mirror_drift.py             # check mode (CI runs this advisory)
+python tools/check_mirror_drift.py --update    # re-record baselines after a manual sync
+```
+
+The script fetches each mirrored skill's upstream raw URL, computes a sha256, and compares to the recorded `upstream_content_sha256` in `skills.json`. CI runs the check as advisory (continue-on-error) so drift surfaces in the lint summary without blocking PRs.
+
+When upstream changes, manually re-sync the mirror's `SKILL.md`, then run `--update` to record the new baseline.
+
 ## Authoring conventions
 
 Each skill follows the standard Claude Code skill format:
