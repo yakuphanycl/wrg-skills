@@ -23,6 +23,8 @@ listed without reproduction detail until public disclosure.
 | Target | Audit date | Status | Severity summary | Case-study |
 |---|---|---|---|---|
 | `modelcontextprotocol/servers` (`@modelcontextprotocol/server-filesystem@0.6.3`) | 2026-04-26 | public | 0 Critical / 0 High / 0 Medium / 6 Low / 2 Info | [filesystem-mcp-2026-04-26](../../docs/case-studies/filesystem-mcp-2026-04-26.md) |
+| `modelcontextprotocol/servers` (`mcp-server-fetch@0.6.3`) | 2026-04-26 | public | 0 Critical / 0 High / 1 Medium / 1 Low / 2 Info | [fetch-mcp-2026-04-26](../../docs/case-studies/fetch-mcp-2026-04-26.md) |
+| `modelcontextprotocol/servers` (github MCP) | in progress | Pending: github MCP (in progress) | — | TBD |
 
 When an audit lands, the row's "Case-study" column links to the document
 under [`docs/case-studies/`](../../docs/case-studies/). Internal audits
