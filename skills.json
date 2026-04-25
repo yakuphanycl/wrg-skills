@@ -1,0 +1,76 @@
+{
+  "$schema": "https://skills.sh/schema/skills.v1.json",
+  "repository": {
+    "name": "yakuphanycl/wrg-skills",
+    "url": "https://github.com/yakuphanycl/wrg-skills",
+    "license": "MIT",
+    "description": "Claude Code skills authored alongside the WinstonRedGuard monorepo: monorepo-audit, memory-check, wrg-devguard-paste-lint",
+    "homepage": "https://github.com/yakuphanycl/wrg-skills"
+  },
+  "publisher": {
+    "name": "yakuphanycl",
+    "url": "https://github.com/yakuphanycl",
+    "context": "Author of the WinstonRedGuard monorepo (https://github.com/yakuphanycl/WinstonRedGuard); skills here are byproducts of that work."
+  },
+  "version": "0.1.0",
+  "published_at": "2026-04-25",
+  "skills": [
+    {
+      "name": "monorepo-audit",
+      "path": "skills/monorepo-audit",
+      "summary": "Audit a Python monorepo for SQLite schema drift, coverage-floor drift, and orphan modules. Read-only, fast, stdlib-only with optional tomli fallback.",
+      "tags": ["monorepo", "python", "audit", "governance", "schema-drift", "coverage", "dead-code"],
+      "triggers": ["audit my monorepo", "schema drift", "coverage floor", "orphan modules", "fail_under check", "/monorepo-audit"],
+      "scripts": ["scripts/audit.py"],
+      "references": ["references/conventions.md"],
+      "scope": "general",
+      "language": "python",
+      "stability": "stable"
+    },
+    {
+      "name": "memory-check",
+      "path": "skills/memory-check",
+      "summary": "Pause and audit the current conversation for friction patterns auto-memory might have missed. Surfaces correction patterns, repeated friction, and real-time mismatches as draft feedback memory entries with per-entry user approval.",
+      "tags": ["memory", "audit", "session", "feedback", "discipline"],
+      "triggers": ["/memory-check", "memory check", "scan friction", "what have I been correcting", "look for repeated fixes", "what should I remember from this session"],
+      "scripts": [],
+      "references": [],
+      "scope": "general",
+      "language": "markdown",
+      "stability": "experimental"
+    },
+    {
+      "name": "wrg-devguard-paste-lint",
+      "path": "skills/wrg-devguard-paste-lint",
+      "summary": "Run wrg-devguard policy lint or secret scan against a pasted snippet. Useful for prompt-injection detection, AI safety review, and credential leak detection. Wraps the wrg-devguard PyPI package; no network calls.",
+      "tags": ["safety", "prompt-injection", "secrets", "lint", "ai-safety", "wrg-devguard"],
+      "triggers": ["is this prompt safe", "any secrets in this", "lint this prompt", "prompt injection check", "scan for credentials", "/wrg-devguard-paste-lint"],
+      "scripts": [],
+      "references": [],
+      "scope": "general",
+      "language": "python",
+      "stability": "stable",
+      "dependencies": {
+        "pypi": ["wrg-devguard>=0.1.1"]
+      }
+    }
+  ],
+  "install_notes": {
+    "scope_default_recommendation": "Global",
+    "claude_code_path": "~/.claude/skills/<name>/",
+    "non_claude_global_path": "~/.agents/skills/<name>/",
+    "non_claude_project_path": "./.agents/skills/<name>/",
+    "git_hygiene": "Add /.agents/skills/ and /skills-lock.json to .gitignore if installing into a tracked repo with Project scope.",
+    "see_also": "INSTALL.md"
+  },
+  "ecosystem": {
+    "format": "skills.sh v1",
+    "installer": "npx skills install github.com/yakuphanycl/wrg-skills",
+    "compatible_agents": [
+      "Amp", "Antigravity", "Cline", "Codex", "Cursor", "Deep Agents",
+      "Firebender", "Gemini CLI", "GitHub Copilot", "Kimi Code CLI",
+      "OpenCode", "Warp"
+    ],
+    "claude_code_compatibility": "manual or symlink — see INSTALL.md"
+  }
+}
