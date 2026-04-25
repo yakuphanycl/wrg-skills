@@ -4,7 +4,7 @@
     "name": "yakuphanycl/wrg-skills",
     "url": "https://github.com/yakuphanycl/wrg-skills",
     "license": "MIT",
-    "description": "Claude Code skills authored alongside the WinstonRedGuard monorepo: monorepo-audit, memory-check, wrg-devguard-paste-lint",
+    "description": "Claude Code skills authored alongside the WinstonRedGuard monorepo: monorepo-audit, memory-check, wrg-devguard-paste-lint, instinct (mirrored from yakuphanycl/instinct)",
     "homepage": "https://github.com/yakuphanycl/wrg-skills"
   },
   "publisher": {
@@ -45,13 +45,35 @@
       "summary": "Run wrg-devguard policy lint or secret scan against a pasted snippet. Useful for prompt-injection detection, AI safety review, and credential leak detection. Wraps the wrg-devguard PyPI package; no network calls.",
       "tags": ["safety", "prompt-injection", "secrets", "lint", "ai-safety", "wrg-devguard"],
       "triggers": ["is this prompt safe", "any secrets in this", "lint this prompt", "prompt injection check", "scan for credentials", "/wrg-devguard-paste-lint"],
-      "scripts": [],
+      "scripts": ["scripts/quick_check.py", "scripts/test_quick_check.py"],
       "references": [],
       "scope": "general",
       "language": "python",
       "stability": "stable",
       "dependencies": {
         "pypi": ["wrg-devguard>=0.1.1"]
+      }
+    },
+    {
+      "name": "instinct",
+      "path": "skills/instinct",
+      "summary": "Self-learning memory for AI coding agents. Records tool sequences, user preferences, and recurring fixes; auto-promotes mature patterns into suggestions. Mirror of yakuphanycl/instinct's canonical skill — runs on top of the instinct-mcp PyPI server (~1,400 monthly downloads).",
+      "tags": ["memory", "pattern-learning", "self-learning", "mcp", "instinct", "instinct-mcp", "mirror"],
+      "triggers": ["remember this", "remember this pattern", "log this fix", "what have we seen before", "consolidate session memory", "/instinct", "scan repo for past patterns"],
+      "scripts": [],
+      "references": [],
+      "scope": "general",
+      "language": "markdown",
+      "stability": "stable",
+      "dependencies": {
+        "pypi": ["instinct-mcp>=1.4.0"]
+      },
+      "mirror": {
+        "source": "https://github.com/yakuphanycl/instinct/blob/master/.claude/skills/instinct/SKILL.md",
+        "upstream_repo": "yakuphanycl/instinct",
+        "upstream_version_at_sync": "v1.4.0",
+        "last_sync": "2026-04-25",
+        "sync_cadence": "manual / quarterly or on upstream minor release"
       }
     }
   ],

@@ -29,6 +29,7 @@ This adds the skills under `~/.claude/skills/<skill-name>/`. Each skill loads on
 | [`monorepo-audit`](skills/monorepo-audit/) | "audit my monorepo", "schema drift", "fail_under check", "orphan modules" | Three static checks across a Python monorepo: SQLite schema drift, coverage-floor drift, orphan modules. Markdown + JSON report, exit code 0/1. Read-only. |
 | [`memory-check`](skills/memory-check/) | `/memory-check`, "what have I been correcting", "scan for friction patterns" | Pause-and-audit pass over the current conversation — surfaces correction patterns, repeated friction, real-time mismatches as candidate `feedback` memory entries with per-entry user approval. |
 | [`wrg-devguard-paste-lint`](skills/wrg-devguard-paste-lint/) | "is this prompt safe?", "any secrets in this?", "lint this prompt" | Runs [`wrg-devguard`](https://pypi.org/project/wrg-devguard/) policy lint or secret scan against a pasted snippet. Returns structured findings (rule_id, severity, position). Useful for prompt-injection detection and credential leak review. |
+| [`instinct`](skills/instinct/) — *mirror* | "remember this pattern", "log this fix", "what have we seen before", "/instinct" | Self-learning memory for AI coding agents (tool sequences, preferences, recurring fixes). Auto-promotes mature patterns into suggestions. **Mirrored from [yakuphanycl/instinct](https://github.com/yakuphanycl/instinct) v1.4.0**; runs on top of the [`instinct-mcp`](https://pypi.org/project/instinct-mcp/) PyPI server (~1,400 monthly downloads). |
 
 ## Why these skills
 
