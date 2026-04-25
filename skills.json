@@ -4,7 +4,7 @@
     "name": "yakuphanycl/wrg-skills",
     "url": "https://github.com/yakuphanycl/wrg-skills",
     "license": "MIT",
-    "description": "Claude Code skills authored alongside the WinstonRedGuard monorepo: monorepo-audit, memory-check, wrg-devguard-paste-lint, instinct (mirrored from yakuphanycl/instinct)",
+    "description": "Claude Code skills authored alongside the WinstonRedGuard monorepo: monorepo-audit, memory-check, wrg-devguard-paste-lint, instinct (mirrored from yakuphanycl/instinct), mcp-audit",
     "homepage": "https://github.com/yakuphanycl/wrg-skills"
   },
   "publisher": {
@@ -75,6 +75,22 @@
         "last_sync": "2026-04-25",
         "sync_cadence": "manual / quarterly or on upstream minor release"
       }
+    },
+    {
+      "name": "mcp-audit",
+      "path": "skills/mcp-audit",
+      "summary": "Audit a FastMCP server for tool discoverability (1-5 per tool), return-shape consistency, test coverage, and decay candidates. Produces an evidence-only Markdown report with a 'this-week pick' of \u2264 1hr fixes plus a deferred backlog. Read-only; battle-tested across two real audits.",
+      "tags": ["audit", "mcp", "fastmcp", "discoverability", "evidence-brief", "tool-quality"],
+      "triggers": ["audit my MCP server", "score my MCP tools", "check tool discoverability", "MCP tool inventory", "are my MCP descriptions any good", "/mcp-audit"],
+      "scripts": [],
+      "references": ["references/audit_template.md"],
+      "scope": "general",
+      "language": "markdown",
+      "stability": "stable",
+      "precedents": [
+        "https://github.com/yakuphanycl/WinstonRedGuard/pull/295",
+        "https://github.com/yakuphanycl/instinct/pull/26"
+      ]
     }
   ],
   "install_notes": {
