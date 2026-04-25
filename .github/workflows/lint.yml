@@ -1,0 +1,36 @@
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: python -m pip install ruff
+
+      - name: Validate SKILL.md frontmatter
+        run: python .github/workflows/scripts/check_frontmatter.py
+
+      - name: Ruff check skill scripts
+        shell: bash
+        run: |
+          mapfile -t files < <(find skills -path '*/scripts/*.py' -print)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No Python scripts found under skills/*/scripts/"
+            exit 0
+          fi
+          ruff check --select E9,F --ignore F401 --isolated "${files[@]}"

@@ -1,5 +1,17 @@
 # wrg-skills
 
+## Quick install
+
+```bash
+npx skills install github.com/yakuphanycl/wrg-skills
+claude
+/skills
+```
+
+## Status
+
+[![lint](https://github.com/yakuphanycl/wrg-skills/actions/workflows/lint.yml/badge.svg)](https://github.com/yakuphanycl/wrg-skills/actions/workflows/lint.yml)
+
 Claude Code skills authored alongside the [WinstonRedGuard (WRG)](https://github.com/yakuphanycl/WinstonRedGuard) monorepo. Each skill is a self-contained `SKILL.md` (and optional accompanying scripts/references) that teaches Claude a specific capability.
 
 ## Install
@@ -10,7 +22,7 @@ npx skills install github.com/yakuphanycl/wrg-skills
 
 This adds the skills under `~/.claude/skills/<skill-name>/`. Each skill loads on-demand when its trigger phrases match.
 
-## Skills in this repo
+## Per-skill matrix
 
 | Skill | Triggers | What it does |
 |---|---|---|
@@ -51,6 +63,8 @@ The `description` is the most important field — it's what Claude reads to deci
 ## Contributing
 
 This is a single-author repo (yakuphanycl) for now — the skills are byproducts of WRG work. If a skill seems generally useful and you want to extend it, open an issue first to discuss scope. PRs welcome but the bar is "Markdown-clean, deterministic, no surprise side effects."
+
+Open an issue before larger changes. PRs must pass CI. `SKILL.md` frontmatter must include `name:` and `description:`, and `name:` must match the skill directory; the exact validation rules live in `.github/workflows/scripts/check_frontmatter.py`.
 
 ## License
 
