@@ -196,7 +196,69 @@ This codifies the github → filesystem pivot pattern from this audit.
   Linux removes this entirely.
 ```
 
-### 6.5 No skill-source PRs from A this wave
+### 6.5 `SKILL.md` — define a "lite scan" variant for `<10-tool` surfaces
+
+**Where**: `skills/mcp-audit/SKILL.md`, "When to invoke" → "Don't trigger when" subsection.
+
+**Background**: the current `SKILL.md` says "Don't trigger when: Server has <10 tools — too small for the rubric to add value over reading the source." Wave-2 evidence (C's `mcp-server-fetch` audit, 1-tool surface) confirms this is the right default for the **5-axis** scan: 3 of 5 axes (return-shape, naming, decay) are trivially satisfied with 1 tool. But C's audit also surfaced a security-relevant finding (SSRF posture, missing allowlist) through git-history analysis at the inventory step — work that happened **outside** the 5-axis scoring loop.
+
+**Content** (proposed):
+
+```markdown
+For `<10-tool` surfaces, run a **"lite scan" variant** instead of skipping
+entirely:
+
+1. Inventory + git-history scan (especially: any feature branches that
+   added security/test/docs but never merged? `git branch -a --contains
+   <commit>` to verify merge status; `git log -S "<symbol>"` to confirm
+   add/remove claims).
+2. Security axis only (SEC-001 through SEC-009 from `SEVERITY.md`) —
+   discoverability and decay axes are noise at this scale.
+3. Test coverage axis (TEST-001 through TEST-004) — small surfaces still
+   benefit from MCP-layer integration tests.
+4. Skip discoverability + return-shape + naming scoring.
+
+The lite scan still produces a case-study using the same `_TEMPLATE.md`,
+just with a shorter §3 (Findings) and a note in §2 (Methodology) that the
+lite variant was applied.
+
+Threshold: 1-9 tools = lite scan. 10+ tools = full 5-axis scan.
+```
+
+**Attribution**: surfaced by C's `mcp-server-fetch` audit (wave 2). The 1-tool surface validated both that the threshold is right for the full scan AND that a security-only variant catches what the full scan would have skipped.
+
+**Cross-reference**: this proposal is independent of §6.1–§6.4. Can land in any order. It's the highest-leverage of the five proposals because the next external audit may target a small surface, and "skip entirely" loses real findings.
+
+### 6.6 Attribution discipline — pickaxe-required for "silently removed" claims
+
+**Where**: `skills/mcp-audit/SKILL.md`, "Honest scoring discipline" section, fourth rule (after the existing three).
+
+**Background**: wave 2's C audit produced a false-positive `silently removed` claim — narrative attribution chained two unrelated commits (one feature-branch add, one main null-fix). The disclosure SOP's GHSA gate caught it (C correctly STOPPED before public filing), but the claim made it as far as the case-study draft and WRG evidence record.
+
+**Content** (proposed):
+
+```markdown
+4. **Verify "silently removed" / "regression in commit X" claims with pickaxe**.
+   Any audit narrative that says "the security feature was added in commit A and
+   removed/disabled in commit B" must be backed by:
+   - `git log -S "<symbol>" -- <path>` showing the symbol added in A
+     and removed (or modified) in B. If the symbol appears in **only**
+     A's commit and never in B's diff, the "silently removed" claim is
+     false — A was likely on an unmerged feature branch.
+   - `git branch -a --contains <commit>` to verify the commit's merge
+     status. A commit reachable only from a `claude/issue-*` or other
+     ad-hoc feature branch was never on `main` to be removed from.
+   - Math sanity check: if commit A was `+143/-3` and commit B is
+     `+12/-10`, B did not "remove the security feature" — it modified
+     ~22 lines of unrelated code.
+
+   This rule prevents false-positive escalations from chained-narrative
+   misreads and protects the disclosure SOP's GHSA gate from churn.
+```
+
+**Attribution**: surfaced by C's `mcp-server-fetch` audit (wave 2). The disclosure SOP gate worked exactly as designed — the claim was caught at A's pre-disclosure review. Codifying the verification step into the skill prevents the same shape of error in future audits.
+
+### 6.7 No skill-source PRs from A this wave
 
 `SKILL.md` and `SEVERITY.md` are currently being modified by B's #8 (TS-adaptation subsection + SHAPE-005 row). To avoid file-conflict with B's open PR, A's retro lands as a standalone document under `docs/retrospectives/` and the actions above are filed as **proposals**, not source edits. Once #8 merges, any of §6.1–§6.4 can be opened as one or more follow-up PRs. The order doesn't matter — these are independent.
 
