@@ -57,6 +57,21 @@ Don't trigger when:
 
 The skill produces a single Markdown file. The doing-it-yourself version:
 
+0. **Target health check** — before scoping the audit:
+   - Confirm the target package is on the active reference list (not in
+     `*-archived` repos, not deprecated by the maintainer).
+   - Note the latest published version and the commit SHA being audited.
+   - If the target was moved/archived, surface this immediately and ask
+     the maintainer (or yourself, if self-directing) whether to (a) audit
+     the archived version anyway (low disclosure value but skill-validation
+     value), or (b) pivot to an active sibling.
+
+   First applied: planned target was `modelcontextprotocol/servers/src/github`,
+   discovered moved to `modelcontextprotocol/servers-archived` at step 0,
+   pivoted to `src/filesystem` (active, comparable blast radius). Pivot
+   took <5 minutes; without step 0 the discovery would have surfaced
+   mid-audit and wasted scoring work.
+
 1. **Inventory** — grep for `@mcp.tool()` (or equivalent decorator) across
    `src/`. List every match: tool name, module path, line number.
 
@@ -64,6 +79,37 @@ The skill produces a single Markdown file. The doing-it-yourself version:
    grep -rn "@mcp.tool\(\)" src/ | wc -l   # total count
    grep -rn "@mcp.tool\(\)" src/ -A 2      # peek at each
    ```
+
+   For TypeScript surfaces, see "TypeScript adaptation" section below
+   (substitute `server\.registerTool\(` for `@mcp.tool()`).
+
+   For Python low-level SDK surfaces (`@server.list_tools()` +
+   `@server.call_tool()` instead of FastMCP `@mcp.tool()`), grep for
+   the dispatch handler and extract tool names from the returned list.
+
+1.5. **Novelty verification (prerequisite for any "novel finding" claim)** —
+     before recording a finding as not-previously-discussed by the
+     maintainer, run **at least three** of the following queries:
+
+     ```bash
+     gh issue list --repo <upstream> --state all --search "<keyword>"
+     gh pr list    --repo <upstream> --state all --search "<keyword>"
+     gh search code --repo <upstream> "<symbol>"
+     git log -S "<symbol>" -- <path>           # pickaxe
+     git log --all --grep="<keyword>"
+     ```
+
+     Document the queries run + result counts in the case-study §7
+     disclosure timeline. If a relevant existing issue/PR is found, the
+     finding routes via the SOP "maintainer-tracked, documented limitation"
+     edge case (de-escalate to Low + comment on existing issue), not as
+     a novel finding. If all queries return 0 relevant results, the
+     "novel" claim is verified and the finding routes per its severity
+     bucket.
+
+     First applied proactively: `mcp-server-memory` audit (2026-04-26),
+     5 queries (race / atomic / lock / concurrent / mutex) all returned
+     0 results before claiming F-002 (non-atomic write) was novel.
 
 2. **Discoverability scoring** — for each tool, read its docstring + args.
    Score 1-5 against the rubric. Justify scores below 5 with one sentence.
@@ -84,11 +130,35 @@ The skill produces a single Markdown file. The doing-it-yourself version:
    Tools failing **all four** are decay candidates. Rank by how recently
    they last appeared in any signal.
 
-5. **Top 5 priorities** — ranked, name-specific, with effort estimate.
+5. **State handling (stateful surfaces only)** — applies when the server
+   maintains state across tool calls (file-backed store, SQLite, in-memory
+   dict, external service connection):
+   - **Atomicity**: do mutating writes use atomic primitives (write-temp +
+     `fs.rename`, transactions) or naked `write` calls that can leave
+     half-written state on crash?
+   - **Concurrency**: is there an in-process serialiser (mutex, async-lock)
+     for `load → mutate → save` patterns? Two concurrent calls to a
+     mutation tool — does one win cleanly or do they interleave?
+   - **Persistence verification**: do tests verify state survives a process
+     restart, or only that mutations are visible within the same fixture?
+   - **State leakage**: can tool A's mutations be observed by tool B in
+     ways the surface doesn't document? Especially relevant for
+     multi-tenant or multi-context deployments.
+
+   For pure-functional surfaces (no state — `time`, `fetch`, etc.) skip
+   this axis entirely. For stateful surfaces, the four sub-checks above
+   are the discovery questions; map findings to `STATE-*` rows in
+   `SEVERITY.md`.
+
+   First applied: `mcp-server-memory` audit (2026-04-26) — surfaced F-002
+   (non-atomic `saveGraph` + missing in-process serialiser) which scored
+   trivially-OK on all five other axes.
+
+6. **Top 5 priorities** — ranked, name-specific, with effort estimate.
    Each priority must be ≤1hr to fix. Bigger fixes are next-session
    backlog.
 
-6. **Decision gate** — at the bottom of the report:
+7. **Decision gate** — at the bottom of the report:
    - Total tools, average discoverability, % consistency
    - **This-week pick**: 1-2 fixes (≤1hr each), name specific tools
    - **Next-session backlog**: 3-5 deeper items
@@ -96,6 +166,42 @@ The skill produces a single Markdown file. The doing-it-yourself version:
 
 See `references/audit_template.md` for the full Markdown template, with
 section headers and example rows already filled in for adaptation.
+
+## Lite-scan variant for `<10`-tool surfaces
+
+For surfaces with fewer than 10 tools, run a **lite scan** instead of
+skipping the audit entirely. The full 5-axis scan adds noise at small
+scale (3 of 5 axes are trivially satisfied with 1-2 tools), but security
+posture and test coverage gaps still warrant attention.
+
+**Lite scan procedure**:
+
+1. Step 0 (target health check) — same as full scan.
+2. Step 1 (inventory) — same as full scan.
+3. Step 1.5 (novelty verification) — same as full scan.
+4. **Skip steps 2 (discoverability scoring), 3 (consistency audit),
+   4 (decay candidate detection)** — these axes are trivially-pass at
+   small scale and produce no actionable findings.
+5. **Run security axis only** (`SEC-001` through `SEC-009` from
+   `SEVERITY.md`).
+6. **Run test coverage axis** — small surfaces still benefit from
+   MCP-layer integration tests.
+7. Step 5 (state handling) — only if the surface is stateful.
+8. Steps 6 (top 5 priorities) and 7 (decision gate) — adjusted to "top
+   1-3 priorities" given the smaller finding pool.
+
+The lite scan produces a case-study using the same `_TEMPLATE.md`, just
+with a shorter §3 (Findings) and a note in §2 (Methodology) that the
+lite variant was applied.
+
+**Threshold**: 1-9 tools = lite scan. 10+ tools = full 5-axis scan.
+
+**First applied**: `mcp-server-time` audit (2026-04-26, 2 tools) — full
+scan would have added 3 trivially-passing sections; lite scan saved 60%
+of analysis time with zero loss of actionable findings (see case-study
+§6 dogfood validation feedback). Confirmed signal: `SEC N/A ratio >50%`
+identifies pure-computation servers (no network / no filesystem / no
+database = no attack surface) where the lite scan completes faster.
 
 ## Output location
 
@@ -160,11 +266,18 @@ First applied: `modelcontextprotocol/servers@HEAD` filesystem audit
    maintainer can do in a single PR within an hour.
 8. Open the report as a draft PR with the file as the only deliverable.
    Use the maintainer's evidence-brief format if known.
+9. **Cross-agent coordination** — if multiple Claude agents are running
+   parallel branches in the same repo (case-study refile by one agent,
+   skill-extension by another, etc.), use `git show <ref>:<path>` to
+   read another agent's in-flight content rather than `git checkout
+   <ref>`. Checkout in a shared repo can stomp the other agent's
+   worktree branch pointer; `git show` is read-only and safe. The
+   `<ref>` can be `origin/<branch>` even before the branch is merged.
 
 ## Honest scoring discipline
 
 The audit is most useful when the maintainer **trusts the numbers**.
-Three discipline rules:
+Four discipline rules:
 
 1. **Don't deflate to manufacture problems.** If the surface is genuinely
    well-described (4.91/5 happens — see instinct's PR #26), say so.
@@ -177,6 +290,29 @@ Three discipline rules:
 3. **Decision gate must point to specific tools.** Not "consider improving
    X". Tools have names; use them. The maintainer should be able to
    `grep` the exact strings the audit names.
+
+4. **Verify "silently removed" / "regression in commit X" claims with
+   pickaxe.** Any audit narrative that says "the security feature was
+   added in commit A and removed/disabled in commit B" must be backed by:
+   - `git log -S "<symbol>" -- <path>` showing the symbol added in A
+     and removed (or modified) in B. If the symbol appears in **only**
+     A's commit and never in B's diff, the "silently removed" claim is
+     false — A was likely on an unmerged feature branch.
+   - `git branch -a --contains <commit>` to verify the commit's merge
+     status. A commit reachable only from a `claude/issue-*` or other
+     ad-hoc feature branch was never on `main` to be removed from.
+   - Math sanity check: if commit A was `+143/-3` and commit B is
+     `+12/-10`, B did not "remove the security feature" — it modified
+     ~22 lines of unrelated code.
+
+   This rule prevents false-positive escalations from chained-narrative
+   misreads and protects the disclosure SOP's GHSA gate from churn.
+
+   First applied: caught a false-positive `silently removed` claim
+   in `mcp-server-fetch` audit (2026-04-26) at A's pre-disclosure review,
+   before public filing. The disclosure SOP gate worked exactly as
+   designed; this rule codifies the verification step into the skill so
+   the same shape of error is caught at audit time.
 
 ## Examples in the wild
 
