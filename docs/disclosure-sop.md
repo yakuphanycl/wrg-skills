@@ -163,6 +163,30 @@ Concrete examples:
   severity first via its channel. Lower-severity findings can wait for
   the disclosure window of the higher one to close, then go public
   together.
+- **Medium severity where the disclosure IS the patch**: some Medium-bucket
+  findings (`TEST-003` untested mutation, `ERR-002` mixed `raise` vs envelope,
+  certain `SHAPE-*` drifts) are best resolved by an upstream PR that the
+  maintainer can review on its own — there is nothing to disclose privately
+  beyond the diff itself, and the 90-day window adds friction without
+  protecting users. In these cases, route as Low (public PR with the fix)
+  and record the routing decision in the case-study finding's "Why this
+  bucket" line as `OVERRIDE: de-escalated to Low — disclosure IS the patch`.
+  This is distinct from a generic Medium → Low de-escalation; the
+  patch-as-disclosure rationale should be explicit. Concrete trigger: the
+  maintainer can fully assess the risk by reading the PR diff in
+  isolation, with no proof-of-concept exploit needed and no user-data
+  exposure window between merge and release.
+- **Maintainer-tracked, documented limitation matching audit finding**: if
+  a Medium-or-higher finding (e.g., `SEC-004` SSRF posture, `SEC-008`
+  missing rate limit) is already tracked by an open enhancement issue on
+  the upstream repo AND the README documents the limitation explicitly
+  (e.g., a `[!CAUTION]` block warning operators), de-escalate to Low and
+  route as a comment on the existing issue with audit attestation. Filing
+  a fresh GHSA or new public issue would duplicate the maintainer's own
+  tracking. Record as `OVERRIDE: de-escalated to Low — maintainer-aware
+  + documented limitation + tracked via OPEN issue #<N>`. First applied:
+  `mcp-server-fetch` audit (2026-04-26), comment on
+  [`modelcontextprotocol/servers#2317`](https://github.com/modelcontextprotocol/servers/issues/2317).
 
 ---
 

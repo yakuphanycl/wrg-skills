@@ -191,3 +191,32 @@ template if it adds context the maintainer will want to verify against.
 Optional. Note any deviation from the standard skill procedure (e.g.,
 "server uses a custom `@register_tool` decorator instead of `@mcp.tool()`;
 inventory grep adapted accordingly").
+
+Common drift categories worth recording when applicable:
+
+- **Decorator / framework substitution** — server uses a custom decorator,
+  the low-level Python SDK (`@server.list_tools()` + `@server.call_tool()`),
+  or the TS SDK (`server.registerTool()`) instead of canonical FastMCP
+  `@mcp.tool()`. Note the substitution + the canonical envelope shape for
+  the substituted ecosystem (TS: `{content, structuredContent}`; low-level
+  Python: `[TextContent(...)]`; FastMCP: `{ok, ...}`).
+- **Local test execution blocked** — if the target is an npm workspaces
+  project and the audit ran on Windows without Developer Mode, document
+  that local install/test was blocked by symlink permissions and that
+  upstream CI was relied on for validation. This is not a methodology
+  failure; it is a known Windows-tooling constraint. Reproducing on macOS
+  or Linux removes this entirely. First documented in the
+  `@modelcontextprotocol/server-filesystem` audit (2026-04-26).
+- **Lite-scan variant applied** — if the target has fewer than 10 tools
+  and the auditor ran the lite-scan variant (security axis + test-coverage
+  axis only; discoverability + return-shape + naming skipped as
+  trivial-pass at small scale), note this here and link the SKILL.md
+  section that defines the lite scan.
+- **Pickaxe verification used for "removed" claims** — if the audit's
+  inventory step surfaced a "feature added then removed" narrative across
+  commits, note that pickaxe (`git log -S "<symbol>"`) and branch-membership
+  (`git branch -a --contains <commit>`) checks were used to verify the
+  claim, and record the result. False-positive `silently removed` claims
+  have happened (mcp-server-fetch audit, 2026-04-26) when an unmerged
+  feature branch was diffed against a mainline commit; the verification
+  is now mandatory per `SKILL.md` honest-scoring rule 4.
