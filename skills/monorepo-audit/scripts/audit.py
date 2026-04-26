@@ -1236,6 +1236,81 @@ def check_public_api_not_reexported(apps: list[Path]) -> CheckResult:
     return result
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Check 8: orphan_tests
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _importable_modules(pkg: Path) -> set[str]:
+    """Build the set of dotted module paths that absolute imports can target.
+
+    Includes the package itself, every submodule, and every subpackage
+    (the `__init__.py`-less form, since `from pkg.sub import x` resolves
+    against `pkg.sub` whether `sub` is a module or a package).
+    """
+    importable: set[str] = {pkg.name}
+    for py in pkg.rglob("*.py"):
+        rel = py.relative_to(pkg.parent)
+        parts = rel.with_suffix("").parts
+        mod = ".".join(parts)
+        importable.add(mod)
+        if mod.endswith(".__init__"):
+            importable.add(mod[: -len(".__init__")])
+    return importable
+
+
+def check_orphan_tests(apps: list[Path]) -> CheckResult:
+    """Find test files whose package imports point to modules that no longer exist.
+
+    Heuristic: AST-walk every `tests/test_*.py`, collect absolute imports that
+    target the app's own package, and flag any whose dotted path doesn't
+    resolve to a real module on disk. Relative imports (`from . import ...`)
+    are ignored — they resolve against the test's own location, not src/.
+    Single-name from-imports (`from pkg.mod import Symbol`) are validated at
+    the module level only; whether `Symbol` is a class/function/submodule is
+    ambiguous from AST alone, so we don't flag those.
+    """
+    result = CheckResult(name="orphan_tests")
+    for app_path in apps:
+        app_name = app_path.name
+        pkg = _app_package_dir(app_path)
+        if pkg is None:
+            continue
+        tests_dir = app_path / "tests"
+        if not tests_dir.is_dir():
+            continue
+
+        pkg_name = pkg.name
+        importable = _importable_modules(pkg)
+
+        def _targets_pkg(modname: str) -> bool:
+            return modname == pkg_name or modname.startswith(pkg_name + ".")
+
+        for test_py in sorted(tests_dir.rglob("test_*.py")):
+            try:
+                tree = ast.parse(test_py.read_text(encoding="utf-8"))
+            except (OSError, SyntaxError):
+                continue
+
+            missing: set[str] = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for n in node.names:
+                        if _targets_pkg(n.name) and n.name not in importable:
+                            missing.add(n.name)
+                elif isinstance(node, ast.ImportFrom):
+                    if node.level and node.level > 0:
+                        continue
+                    if node.module and _targets_pkg(node.module) and node.module not in importable:
+                        missing.add(node.module)
+
+            if missing:
+                rel_display = test_py.relative_to(app_path)
+                result.findings.append(Finding(
+                    check="orphan_tests", app=app_name,
+                    detail=f"{rel_display} — imports missing module(s): {', '.join(sorted(missing))}",
+                ))
+    return result
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -1251,6 +1326,7 @@ ALL_CHECKS = (
     "type_contract_drift",
     "plugin_loader_drift",
     "public_api_not_reexported",
+    "orphan_tests",
 )
 
 
@@ -1281,6 +1357,8 @@ def run_audit(
             results.append(check_plugin_loader_drift(apps))
         elif check == "public_api_not_reexported":
             results.append(check_public_api_not_reexported(apps))
+        elif check == "orphan_tests":
+            results.append(check_orphan_tests(apps))
 
     all_findings: list[Finding] = []
     all_notes: list[str] = []
@@ -1365,6 +1443,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="Run only one check.")
     p.add_argument("--skip", action="append", choices=ALL_CHECKS, default=[],
                    help="Skip a check (repeatable).")
+    p.add_argument("--strict", action="store_true",
+                   help="Exit non-zero on any finding. Default exits non-zero "
+                        "only on `error`-severity findings (warns are advisory).")
     args = p.parse_args(argv)
 
     repo_root = args.repo_root.resolve()
@@ -1383,7 +1464,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(render_markdown(report))
 
-    return 1 if report["findings"] else 0
+    findings = report["findings"]
+    if args.strict:
+        return 1 if findings else 0
+    has_error = any(f["severity"] == "error" for f in findings)
+    return 1 if has_error else 0
 
 
 if __name__ == "__main__":

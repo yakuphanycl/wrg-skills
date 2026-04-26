@@ -86,6 +86,37 @@ with `__init__.py`.
   `conftest.py` is usually inside `tests/`, not the package, so this is
   rarely an issue. If it is, move conftest or accept the false positive.
 
+### orphan_tests
+
+**Required:** Each app has a `tests/` directory at `apps/<app>/tests/` with
+files matching `test_*.py` (recursive — subdirs like `tests/integration/`
+are walked too).
+
+**What it detects:** Absolute imports inside test files that target the
+app's own package but resolve to a module that no longer exists in
+`src/<app>/` (or the flat-layout package). The detector is happy as long as
+either `<app>/<rest>.py` or `<app>/<rest>/__init__.py` exists.
+
+**What it skips:**
+- `conftest.py` and any non-`test_*.py` file (helper modules in `tests/` are
+  not validated).
+- **Relative imports** (`from . import X`, `from .helpers import Y`). They
+  resolve against the test's own location, not src/, so they say nothing
+  about the package.
+- From-import names below the module level — `from my_app.utils import bar`
+  validates `my_app.utils` exists; whether `bar` is a submodule, class, or
+  function is ambiguous from AST and not flagged.
+
+**False positives to watch for:**
+- **Dynamic imports** in tests (`importlib.import_module(name)`) — uncommon
+  but possible in plugin tests. Same workaround as orphan_modules: accept
+  the false positive or pin the import statically.
+- **Imports of the app's own legacy alias** (e.g. an old package name kept
+  alive via `sys.modules` shim). The shim isn't visible to AST.
+
+**Severity:** All findings are `warn`. Default exit code is 0 unless
+something else triggers an error; use `--strict` to gate CI on these.
+
 ## Adapting to your layout
 
 **Different subproject dir (e.g. `packages/` or `services/`):**

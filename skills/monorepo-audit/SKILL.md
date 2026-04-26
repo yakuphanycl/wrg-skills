@@ -1,18 +1,18 @@
 ---
 name: monorepo-audit
-description: Audit a Python monorepo for schema drift between SQLite code/DBs, coverage-floor drift between pyproject fail_under and recorded coverage, orphan Python modules never imported anywhere, declared-adapter contracts that drifted from the actual module set, Protocol type-contracts where the claimed implementer is missing methods, plugin-loader entry-point drift, and public-API re-export drift between README docs and __init__.py. Use this skill whenever the user mentions governance checks, schema drift, coverage floor, orphan modules, dead code detection in a monorepo, adapter contracts / `REQUIRED_ADAPTERS`, Protocol contract drift, plugin loaders, entry points, public API, re-export, doc drift, app/package audit, "is this module used?", fail_under vs actual coverage mismatch, or any phrase like "audit my repo", "check my monorepo", or "/monorepo-audit". Also use when you see a user working in a repo with multiple `apps/<name>/` or `packages/<name>/` subprojects and they're thinking about hygiene, dead code, or consistency across apps — even if they don't specifically ask for an "audit". The output is a human-readable markdown report plus structured JSON, and the skill is fast (no network, stdlib + optional tomli fallback, walks the repo and finishes in seconds).
+description: Audit a Python monorepo for schema drift between SQLite code/DBs, coverage-floor drift between pyproject fail_under and recorded coverage, orphan Python modules never imported anywhere, orphan tests whose imports point to deleted modules, declared-adapter contracts that drifted from the actual module set, Protocol type-contracts where the claimed implementer is missing methods, plugin-loader entry-point drift, and public-API re-export drift between README docs and __init__.py. Use this skill whenever the user mentions governance checks, schema drift, coverage floor, orphan modules, orphan tests, dead code detection in a monorepo, adapter contracts / `REQUIRED_ADAPTERS`, Protocol contract drift, plugin loaders, entry points, public API, re-export, doc drift, app/package audit, "is this module used?", "is this test still testing anything?", fail_under vs actual coverage mismatch, or any phrase like "audit my repo", "check my monorepo", or "/monorepo-audit". Also use when you see a user working in a repo with multiple `apps/<name>/` or `packages/<name>/` subprojects and they're thinking about hygiene, dead code, or consistency across apps — even if they don't specifically ask for an "audit". The output is a human-readable markdown report plus structured JSON, and the skill is fast (no network, stdlib + optional tomli fallback, walks the repo and finishes in seconds).
 ---
 
 # monorepo-audit
 
 ## What this skill does
 
-Runs seven static checks across a Python monorepo and reports findings in a
+Runs eight static checks across a Python monorepo and reports findings in a
 single report. Works on any repo where subprojects live under `apps/<name>/`,
 `packages/<name>/`, or a configurable layout. No network calls, no mutation —
 pure read-and-report.
 
-The seven checks:
+The eight checks:
 
 1. **Schema drift** — parses `CREATE TABLE` statements out of app source code,
    builds the expected column set, compares against live on-disk SQLite DBs
@@ -55,6 +55,11 @@ The seven checks:
    `__all__` is absent). Scans `README.md` for backticked `pkg.module.Symbol`
    references and flags any documented symbol not in the exported set.
    Rationale: README promises != import surface = doc drift.
+8. **Orphan tests** — scans each app's `tests/test_*.py` files, parses their
+   absolute imports, and flags any import that targets the app's own package
+   but resolves to a module that no longer exists on disk. Catches the
+   "tested-code-was-deleted-but-the-test-wasn't" rot. Relative imports
+   (`from . import ...`) are skipped — they don't tell you about src/.
 
 ## When to use
 
@@ -84,26 +89,30 @@ python <skill-path>/scripts/audit.py --json     # JSON report
 python <skill-path>/scripts/audit.py --only coverage_floor  # single check
 python <skill-path>/scripts/audit.py --only plugin_loader_drift   # entry-point resolution
 python <skill-path>/scripts/audit.py --only public_api_not_reexported  # README vs __init__
+python <skill-path>/scripts/audit.py --only orphan_tests    # just the test rot check
 python <skill-path>/scripts/audit.py --apps-dir packages    # custom layout
 python <skill-path>/scripts/audit.py --skip schema_drift    # opt out of a check
+python <skill-path>/scripts/audit.py --strict               # fail CI on warns too
 ```
 
 Exit code:
-- `0` — no findings
-- `1` — at least one finding
+- `0` — no `error`-severity findings (warns are advisory by default)
+- `1` — at least one `error`-severity finding
+- With `--strict`: `1` if **any** finding (warn or error)
 
 Flags:
 - `--json` — emit JSON instead of markdown
 - `--apps-dir DIR` — which directory contains the subprojects (default: `apps`; common alternatives: `packages`, `projects`)
-- `--only CHECK` — run only one check (schema_drift / coverage_floor / orphan_modules / required_adapters / type_contract_drift / plugin_loader_drift / public_api_not_reexported)
+- `--only CHECK` — run only one check (schema_drift / coverage_floor / orphan_modules / required_adapters / type_contract_drift / plugin_loader_drift / public_api_not_reexported / orphan_tests)
 - `--skip CHECK` — skip one check (can be passed multiple times)
 - `--health-dir DIR` — where release/coverage JSONs live (default: `artifacts/health`)
+- `--strict` — exit non-zero on any finding (default exits non-zero only on `error` severity)
 
 ## Workflow for Claude when this skill triggers
 
 1. **Verify layout.** Confirm the repo has `apps/*/pyproject.toml` (or the
    user's configured layout). If not, tell the user — skill doesn't fit.
-2. **Run the audit script.** Start with the default (all five checks, markdown).
+2. **Run the audit script.** Start with the default (all eight checks, markdown).
 3. **Interpret the report.**
    - Severity: `warn` (default) is informational; `error` means the check
      asserts a contract was violated.
@@ -133,6 +142,10 @@ Flags:
    - Public-API re-export: README documents a symbol that `__init__.py` doesn't
      expose. Either (a) add the symbol to `__all__` / re-import it in
      `__init__.py`, or (b) update README to remove the stale reference.
+   - Orphan tests: usually (a) the test for deleted code → delete the test, or
+     (b) a typo / module rename the test wasn't updated for → fix the import.
+     Rarely a false positive (relative imports are skipped, dynamic imports
+     are unusual in tests).
 5. **Ask before mutating.** The skill is read-only by design. If the user
    wants a fix applied, generate the edit and confirm before writing.
 
