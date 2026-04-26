@@ -975,6 +975,270 @@ def detect_type_contract_drift(apps: list[Path]) -> CheckResult:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Check 6: plugin_loader_drift
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _has_plugin_loader_call(pkg: Path) -> bool:
+    """AST-scan package for importlib.metadata.entry_points() or
+    pkg_resources.iter_entry_points() calls."""
+    for py in pkg.rglob("*.py"):
+        try:
+            tree = ast.parse(py.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr in (
+                "entry_points", "iter_entry_points",
+            ):
+                return True
+            if isinstance(func, ast.Name) and func.id in (
+                "entry_points", "iter_entry_points",
+            ):
+                return True
+    return False
+
+
+def _resolve_entry_point_target(
+    pkg_parent: Path, dotted_module: str, symbol: str,
+) -> bool:
+    """Check whether *module:symbol* resolves to a real AST-level name.
+
+    *pkg_parent* is the directory that contains the top-level package
+    (e.g. ``apps/my_app/src/``).  We convert the dotted module path to
+    a filesystem path and then AST-walk the file looking for *symbol*
+    as a class, function, or assignment target.
+    """
+    parts = dotted_module.split(".")
+    mod_file = pkg_parent / Path(*parts).with_suffix(".py")
+    mod_init = pkg_parent / Path(*parts) / "__init__.py"
+
+    target_file: Path | None = None
+    if mod_file.is_file():
+        target_file = mod_file
+    elif mod_init.is_file():
+        target_file = mod_init
+    if target_file is None:
+        return False
+
+    try:
+        tree = ast.parse(target_file.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return False
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == symbol:
+                return True
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id == symbol:
+                    return True
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if node.target.id == symbol:
+                return True
+    return False
+
+
+def check_plugin_loader_drift(apps: list[Path]) -> CheckResult:
+    """Detect entry-point plugin loaders and flag unresolvable targets.
+
+    Two-phase check per app:
+      1. AST-scan for ``importlib.metadata.entry_points()`` or
+         ``pkg_resources.iter_entry_points()`` calls — if absent, skip.
+      2. Parse ``pyproject.toml`` ``[project.entry-points.*]`` groups and
+         verify every ``module:attr`` target resolves to an importable
+         symbol under the app's package directory.
+
+    Severity: S2 (warn).
+    """
+    result = CheckResult(name="plugin_loader_drift")
+    for app_path in apps:
+        app_name = app_path.name
+        pkg = _app_package_dir(app_path)
+        if pkg is None:
+            continue
+
+        if not _has_plugin_loader_call(pkg):
+            continue  # app doesn't use plugin loading — nothing to check
+
+        pyproject = app_path / "pyproject.toml"
+        if not pyproject.is_file():
+            continue
+        data = _load_toml(pyproject)
+        entry_points = data.get("project", {}).get("entry-points", {})
+        if not entry_points:
+            result.notes.append(
+                f"{app_name}: code calls entry_points() but pyproject has "
+                f"no [project.entry-points] groups"
+            )
+            continue
+
+        pkg_parent = pkg.parent  # e.g. apps/my_app/src/
+
+        for group, entries in entry_points.items():
+            if not isinstance(entries, dict):
+                continue
+            for ep_name, target_spec in entries.items():
+                if not isinstance(target_spec, str) or ":" not in target_spec:
+                    result.findings.append(Finding(
+                        check="plugin_loader_drift", app=app_name,
+                        detail=(
+                            f"entry-point '{group}.{ep_name}' has malformed "
+                            f"target '{target_spec}' (expected module:attr)"
+                        ),
+                    ))
+                    continue
+                mod_path, attr_name = target_spec.split(":", 1)
+                if not _resolve_entry_point_target(pkg_parent, mod_path, attr_name):
+                    result.findings.append(Finding(
+                        check="plugin_loader_drift", app=app_name,
+                        detail=(
+                            f"entry-point '{group}.{ep_name}' target "
+                            f"'{target_spec}' does not resolve to an "
+                            f"importable symbol in src/"
+                        ),
+                    ))
+    return result
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Check 7: public_api_not_reexported
+# ──────────────────────────────────────────────────────────────────────
+
+
+_BACKTICK_DOTTED_RE = re.compile(r"`([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)`")
+
+
+def _exported_names(init_py: Path) -> set[str] | None:
+    """Return the public-API name set from a package ``__init__.py``.
+
+    Returns the contents of ``__all__`` if defined, else all non-``_``
+    names bound at module level (including re-imported names).
+    Returns *None* if the file can't be parsed.
+    """
+    try:
+        tree = ast.parse(init_py.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return None
+
+    # Look for __all__ = [...]
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "__all__":
+                    if isinstance(node.value, (ast.List, ast.Tuple)):
+                        names: set[str] = set()
+                        for elt in node.value.elts:
+                            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                                names.add(elt.value)
+                        return names
+
+    # No __all__: collect all non-_ public names at top level
+    public: set[str] = set()
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if not node.name.startswith("_"):
+                public.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and not t.id.startswith("_"):
+                    public.add(t.id)
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                name = alias.asname or alias.name
+                if not name.startswith("_") and name != "*":
+                    public.add(name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                name = alias.asname or alias.name
+                if not name.startswith("_"):
+                    public.add(name)
+    return public
+
+
+def _readme_documented_symbols(readme: Path, pkg_name: str) -> dict[str, str]:
+    """Parse README for backticked ``pkg.module.symbol`` references.
+
+    Returns ``{symbol_name: full_backtick_ref}`` so the finding can
+    quote the exact README reference.
+    """
+    try:
+        text = readme.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+
+    symbols: dict[str, str] = {}
+    for m in _BACKTICK_DOTTED_RE.finditer(text):
+        ref = m.group(1)
+        parts = ref.split(".")
+        # Must start with the package name to be relevant
+        if parts[0] != pkg_name:
+            continue
+        if len(parts) < 2:
+            continue
+        # The "symbol" is the leaf name
+        symbol = parts[-1]
+        symbols[symbol] = ref
+    return symbols
+
+
+def check_public_api_not_reexported(apps: list[Path]) -> CheckResult:
+    """Flag README-documented symbols absent from __init__.py public surface.
+
+    For each app:
+      1. Build the exported name set from the top-level ``__init__.py``
+         (``__all__`` if present, else all non-``_`` names).
+      2. Scan ``README.md`` for backticked ``pkg.module.Symbol`` references.
+      3. Flag any README-promised symbol that is not in the exported set.
+
+    Rationale: README promises != import surface = doc drift.
+    Severity: warn (S3) by default; treated as S2 under ``--strict``.
+    """
+    result = CheckResult(name="public_api_not_reexported")
+    for app_path in apps:
+        app_name = app_path.name
+        pkg = _app_package_dir(app_path)
+        if pkg is None:
+            continue
+
+        init_py = pkg / "__init__.py"
+        if not init_py.is_file():
+            continue
+
+        exported = _exported_names(init_py)
+        if exported is None:
+            continue  # parse failure
+
+        readme = app_path / "README.md"
+        if not readme.is_file():
+            continue
+
+        pkg_name = pkg.name
+        documented = _readme_documented_symbols(readme, pkg_name)
+        if not documented:
+            continue
+
+        missing = {sym: ref for sym, ref in documented.items() if sym not in exported}
+        for sym in sorted(missing):
+            result.findings.append(Finding(
+                check="public_api_not_reexported", app=app_name,
+                detail=(
+                    f"README documents `{missing[sym]}` but "
+                    f"'{sym}' is not re-exported from "
+                    f"{pkg_name}/__init__.py"
+                ),
+                severity="warn",
+            ))
+    return result
+
+
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Report assembly
 # ──────────────────────────────────────────────────────────────────────
 
@@ -985,6 +1249,8 @@ ALL_CHECKS = (
     "orphan_modules",
     "required_adapters",
     "type_contract_drift",
+    "plugin_loader_drift",
+    "public_api_not_reexported",
 )
 
 
@@ -1011,6 +1277,10 @@ def run_audit(
             results.append(detect_required_adapters(apps))
         elif check == "type_contract_drift":
             results.append(detect_type_contract_drift(apps))
+        elif check == "plugin_loader_drift":
+            results.append(check_plugin_loader_drift(apps))
+        elif check == "public_api_not_reexported":
+            results.append(check_public_api_not_reexported(apps))
 
     all_findings: list[Finding] = []
     all_notes: list[str] = []

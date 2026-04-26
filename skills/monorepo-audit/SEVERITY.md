@@ -22,11 +22,11 @@ silently applied.
 4. If you need to deviate (rare), record the override and the reason in
    the case-study finding block.
 
-The 14 rows below cover the categories the audit's five checks
-(`schema_drift`, `coverage_floor`, `orphan_modules`,
-`required_adapters`, `type_contract_drift`) naturally produce, plus a
-small set of cross-cutting hygiene findings that surface during audit
-synthesis.
+The 18 rows below cover the categories the audit's seven checks
+(`schema_drift`, `coverage_floor`, `orphan_modules`, `required_adapters`,
+`type_contract_drift`, `plugin_loader_drift`, `public_api_not_reexported`)
+naturally produce, plus a small set of cross-cutting hygiene findings that
+surface during audit synthesis.
 
 Severity bucket definitions are shared with mcp-audit's
 [`docs/disclosure-sop.md` §1](../../docs/disclosure-sop.md#1-severity-rubric).
@@ -56,6 +56,10 @@ into routine cleanup), not **disclosure routing**.
 | 12 | `META-001` | Meta / cross-app | Same finding type appears in ≥50% of audited apps | Info | Suggests a monorepo-level convention is misapplied or a tooling gap; raise as a single cross-cutting follow-up rather than per-app PRs | All 18 apps lack coverage records (COVER-002) — likely the health-dir convention changed |
 | 13 | `ADAPTER-001` | Required adapters | `adapters/__init__.py` declares an adapter name (in `REQUIRED_ADAPTERS` or in module-name-style `__all__`) but no matching `adapters/<name>.py` or `adapters/<name>/__init__.py` exists | Medium | The package's exported contract drifted from the actual module set — typically a re-export typo or a deleted module that the contract list still mentions. Imports of the missing name fail at runtime on first call into the adapter | `apps/research_motor/src/research_motor/adapters/__init__.py` lists `"keybase_v2"` in `REQUIRED_ADAPTERS` but the file was renamed to `keybase_osint.py` and the contract list wasn't updated |
 | 14 | `TYPE-001` | Type contract drift | A class assigned to a typed variable (`x: ProtoName = Cls(...)`) or returned from a factory annotated `-> ProtoName` is missing one or more of the Protocol's declared methods | Medium | The class claims a contract it does not satisfy; mypy may catch this in strict mode but does not in many real-world configs. Calls into the missing method fail at runtime, often after the object has crossed an abstraction boundary that obscures the original cause | `apps/foo/src/foo/impl.py`: `class A` assigned to `x: P = A()` where `P` requires `sync()` and `close()`, but `A` only implements `close()` |
+| 15 | `PLUGIN-001` | Plugin loader drift | Entry-point target does not resolve to importable symbol | Medium | Loader will raise at runtime; high confidence of real breakage; surfaces only on first load attempt, not at install | `my_plugins.foo:BarPlugin` — `BarPlugin` not found in `foo.py` |
+| 16 | `PLUGIN-002` | Plugin loader drift | Malformed entry-point target (no `module:attr` separator) | Medium | Invalid spec; `importlib.metadata` will fail to load with a confusing stack | `[project.entry-points.my_group]` value `"just_a_string"` |
+| 17 | `PLUGIN-003` | Plugin loader drift | Code calls `entry_points()` but no `[project.entry-points]` declared in pyproject | Info | Possible mismatch — loader exists but nothing is registered. May be intentional (loader is generic across multiple consumers) | App AST has `entry_points(group=...)` call but pyproject has no `[project.entry-points]` groups |
+| 18 | `REEXPORT-001` | Public API drift | README-documented symbol not in package's `__init__.py` public surface | Low | Doc drift — README promises an import path that `__init__.py` doesn't expose. Promotes to Medium under `--strict` because the README is a public contract | README shows `` `pkg.core.Engine` `` but `Engine` is absent from `pkg/__init__.py`'s `__all__` |
 
 ---
 
@@ -77,6 +81,10 @@ case-study's "Why this bucket" line with `OVERRIDE:` and one of:
 investigating; `COVER-001` is a declared-contract violation and the
 contract is the maintainer's word.
 
+`REEXPORT-001` has a `--strict`-mode promotion (Low → Medium) baked into
+the audit logic, not the rubric — case-studies should record the
+post-promotion severity if the audit was run with `--strict`.
+
 ---
 
 ## Adding a new row
@@ -86,7 +94,7 @@ row, propose a new row in the case-study's §6 ("Reusable patterns") and
 open a follow-up PR against this file. Keep `finding_id` zero-padded and
 contiguous within its category prefix.
 
-The 14-row count is not sacred — the table is expected to grow as more
+The 18-row count is not sacred — the table is expected to grow as more
 case-studies land. The constraint is that every finding in every
 case-study cites a row by `finding_id`, so coverage must precede usage.
 
